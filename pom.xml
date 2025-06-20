@@ -4,7 +4,7 @@
 
     <groupId>io.github.codey-star</groupId>
     <artifactId>ratelimiter-spring-boot-starter</artifactId>
-    <version>1.0</version>
+    <version>1.0.1.RELEASE</version>
 
     <name>ratelimiter-spring-boot-starter</name>
     <description>A Spring Boot starter for rate limiting functionality.</description>
