@@ -12,7 +12,7 @@ public class RateLimitRule {
     private int bucketCapacity;
     private int requestedTokens;
     private String fallbackFunction;
-    private double leakyBucketRate;
+    private int leakyBucketRate;
 
     public RateLimitRule(String key, int rate, String rateLimitMode) {
         this.key = key;
@@ -76,11 +76,11 @@ public class RateLimitRule {
         this.fallbackFunction = fallbackFunction;
     }
 
-    public double getLeakyBucketRate() {
+    public int getLeakyBucketRate() {
         return leakyBucketRate;
     }
 
-    public void setLeakyBucketRate(double leakyBucketRate) {
+    public void setLeakyBucketRate(int leakyBucketRate) {
         this.leakyBucketRate = leakyBucketRate;
     }
 }

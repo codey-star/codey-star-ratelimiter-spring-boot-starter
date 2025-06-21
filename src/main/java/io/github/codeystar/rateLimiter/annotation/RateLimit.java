@@ -67,10 +67,10 @@ public @interface RateLimit {
      */
     String rateInterval() default "1s";
 
-    //===================== 令牌桶模式参数 ============================
+    //===================== 桶模式参数 ============================
 
     /**
-     * 令牌桶容量,默认为1,这个限制了瞬时最大并发数量
+     * 令牌桶/漏桶容量,默认为1, 在令牌桶算法里面这个限制了瞬时最大并发数量
      *
      * @return bucketCapacity
      */
@@ -84,18 +84,16 @@ public @interface RateLimit {
     String bucketCapacityExpression() default "";
 
     /**
-     * 每次获取多少令牌，默认为1。一般不用设置，除非你知道你在做什么
+     * 每次获取多少令牌，默认为1。一般不用设置
      *
      * @return requestedTokens
      */
     int requestedTokens() default 1;
 
-    //===================== 漏桶模式参数 ============================
-
     /**
-     * 漏桶的出水速率，即每秒处理的请求数
+     * 每次加水量，默认为1。一般不用设置
      *
      * @return leakyBucketRate
      */
-    double leakyBucketRate() default 1.0;
+    int leakyBucketRate() default 1;
 }

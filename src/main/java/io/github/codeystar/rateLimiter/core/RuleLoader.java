@@ -70,7 +70,7 @@ public class RuleLoader implements BeanFactoryAware {
         return rateLimit.bucketCapacity();
     }
 
-    public double getLeakyBucketRate(RateLimit rateLimit) {
+    public int getLeakyBucketRate(RateLimit rateLimit) {
         return rateLimit.leakyBucketRate();
     }
 
@@ -122,8 +122,11 @@ public class RuleLoader implements BeanFactoryAware {
 
     RateLimitRule getRateLimiterRule(JoinPoint joinPoint, RateLimit rateLimit) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        String rateLimitKey = this.getKey(signature);
         String businessKeyName = this.getKeyName(joinPoint, rateLimit);
-        String rateLimitKey = this.getKey(signature) + "-" + businessKeyName;
+        if (StringUtils.hasLength(businessKeyName)){
+            rateLimitKey = rateLimitKey  + ":" + businessKeyName;
+        }
         if (StringUtils.hasLength(rateLimit.customKeyFunction())) {
             try {
                 rateLimitKey = this.getKey(signature) + this.executeFunction(rateLimit.customKeyFunction(), joinPoint).toString();
@@ -134,7 +137,7 @@ public class RuleLoader implements BeanFactoryAware {
         int rate = this.getRate(rateLimit);
         int bucketCapacity = this.getBucketCapacity(rateLimit);
         long rateInterval = DurationStyle.detectAndParse(rateLimit.rateInterval()).getSeconds();
-        double leakyBucketRate = this.getLeakyBucketRate(rateLimit);
+        int leakyBucketRate = this.getLeakyBucketRate(rateLimit);
 
         RateLimitRule rateLimitRule = new RateLimitRule(rateLimitKey, rate, rateLimit.mode());
         rateLimitRule.setRateInterval(Long.valueOf(rateInterval).intValue());

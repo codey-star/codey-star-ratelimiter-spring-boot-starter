@@ -4,7 +4,7 @@ local rate = tonumber(ARGV[1])
 local rateInterval = tonumber(ARGV[2])
 
 -- 2. 尝试初始化 key（仅当不存在时）
-redis.call('SET', rateLimitKey, 1, 'NX', 'PX', rateInterval * 1000)
+redis.call('SET', rateLimitKey, 0, 'NX', 'PX', rateInterval * 1000)
 
 -- 3. 自增当前值
 local currValue = redis.call('INCR', rateLimitKey)

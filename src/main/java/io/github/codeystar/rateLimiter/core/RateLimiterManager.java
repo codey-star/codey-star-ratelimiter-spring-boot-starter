@@ -11,6 +11,7 @@ import org.redisson.api.RedissonClient;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -35,17 +36,10 @@ public class RateLimiterManager {
         }
     }
 
-    private RateLimiterAlgorithm getRateLimiter(String mode) {
-
-        return rateLimiterFactory.get(mode);
-    }
-
     public RateLimitResult isAllowed(RateLimitRule rateLimitRule) {
         String mode = rateLimitRule.getRateLimitModeEnum();
-        RateLimiterAlgorithm rateLimiter = getRateLimiter(mode);
-        if (rateLimiter == null) {
-            throw new IllegalArgumentException("Unsupported rate limit mode: " + mode);
-        }
+        RateLimiterAlgorithm rateLimiter = Optional.ofNullable(rateLimiterFactory.get(mode))
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported rate limit mode: " + mode));
         return rateLimiter.isAllowed(rateLimitRule);
     }
 }

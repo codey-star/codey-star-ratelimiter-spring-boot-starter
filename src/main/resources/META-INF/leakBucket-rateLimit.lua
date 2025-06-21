@@ -1,10 +1,10 @@
 -- 1. 参数定义
-local bucket_key = KEYS[1]                    -- 漏桶容量key
-local last_leak_key = KEYS[2]                -- 上次漏水时间key
+local bucket_key = KEYS[1]                   -- 当前桶中的水量 key
+local last_leak_key = KEYS[2]                -- 上次漏水时间 key
 local capacity = tonumber(ARGV[1])           -- 漏桶容量
-local leak_rate = tonumber(ARGV[2])          -- 漏水速率(每秒)
-local water_added = tonumber(ARGV[3])        -- 这次请求加水量
-local now = redis.call('TIME')[1]            -- 当前时间戳
+local leak_rate = tonumber(ARGV[2])          -- 每秒漏水速度（处理速度）
+local water_added = tonumber(ARGV[3])        -- 本次请求加水量（通常是 1）
+local now = redis.call('TIME')[1]            -- 获取当前时间戳（秒）
 
 -- 2. 获取当前水量和上次漏水时间
 local current_water = tonumber(redis.call("get", bucket_key)) or 0
@@ -23,7 +23,10 @@ if allowed then
 end
 
 -- 5. 更新Redis
-local ttl = math.floor(capacity/leak_rate * 2)    -- 设置TTL为排空时间的2倍
+local ttl = math.max(1, math.floor(capacity / leak_rate * 2))    -- 设置TTL为排空时间的2倍
+if ttl <= 0 then
+    ttl = 1  -- 设置最小过期时间为 1 秒
+end
 redis.call("setex", bucket_key, ttl, final_water)
 redis.call("setex", last_leak_key, ttl, now)
 
