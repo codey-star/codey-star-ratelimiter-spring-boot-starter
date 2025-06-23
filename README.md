@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-RateLimiter Spring Boot Starter 是一个基于 Spring Boot 的限流组件，提供了多种限流策略，可以轻松地在 Spring Boot 项目中实现接口级别的限流功能。
+RateLimiter Spring Boot Starter 是一个轻量级的分布式限流组件，基于 Spring Boot 框架开发，提供细粒度的接口限流能力。支持多种限流算法，可通过简单配置即可实现接口级别的流量控制。
 
 ## 功能特性
 
@@ -14,7 +14,7 @@ RateLimiter Spring Boot Starter 是一个基于 Spring Boot 的限流组件，�
 - 基于 Redis 实现分布式限流
 - 支持自定义限流规则
 - 支持自定义限流后的回退逻辑
-- 支持动态配置限流参数
+- 支持自定义限流 key
 
 ## 快速开始
 
@@ -26,7 +26,7 @@ RateLimiter Spring Boot Starter 是一个基于 Spring Boot 的限流组件，�
 <dependency>
     <groupId>io.github.codey-star</groupId>
     <artifactId>ratelimiter-spring-boot-starter</artifactId>
-    <version>1.0</version>
+    <version>${latest.version}</version>
 </dependency>
 ```
 
@@ -39,7 +39,20 @@ spring.ratelimiter.redis.address=redis://127.0.0.1:6379
 spring.ratelimiter.redis.password=xxx
 ```
 
-### 3. 使用 @RateLimit 注解
+### 3. 启用限流组件
+
+在启动类添加启用注解：
+
+```java
+@EnableRateLimiter
+public class Application {
+  public static void main(String[] args) {
+    SpringApplication.run(Application.class);
+  }
+}
+```
+
+### 4. 使用 @RateLimit 注解
 
 限流功能会自动启用，你不需要额外的配置。直接在需要限流的方法上添加 `@RateLimit` 注解：
 
@@ -136,7 +149,13 @@ public String customKeyExample(@RequestBody User user) {
 }
 ```
 
-### 7. 使用回退方法
+### 7. 使用回退方法（fallbackFunction）
+
+RateLimiter Spring Boot Starter 提供了 `fallbackFunction` 参数，允许您定义一个自定义的回退方法，当限流被触发时会自动调用该方法。这为您提供了更灵活的方式来处理限流情况。
+
+#### 7.1 基本用法
+
+在 `@RateLimit` 注解中，使用 `fallbackFunction` 参数指定回退方法的名称：
 
 ```java
 @GetMapping("/fallback")
@@ -150,7 +169,58 @@ public String fallbackMethod(ProceedingJoinPoint joinPoint) {
 }
 ```
 
-### 5. 自定义限流模式
+在这个例子中，当请求超过限流阈值时，将调用 `fallbackMethod` 方法而不是原始的 `fallbackExample` 方法。
+
+#### 7.2 回退方法的参数
+
+回退方法应该接受一个 `ProceedingJoinPoint` 类型的参数。这个参数提供了对原始方法调用的访问，包括方法参数等信息。
+
+#### 7.3 高级用法
+
+您可以在回退方法中实现更复杂的逻辑，例如：
+
+1. 记录日志
+2. 发送警报
+3. 返回缓存的结果
+4. 实现重试逻辑
+
+示例：
+
+```java
+@GetMapping("/advanced-fallback")
+@RateLimit(rate = 5, rateInterval = "1m", fallbackFunction = "advancedFallbackMethod")
+public String advancedFallbackExample() {
+    return "Normal response";
+}
+
+public String advancedFallbackMethod(ProceedingJoinPoint joinPoint) {
+    log.warn("Rate limit exceeded for method: " + joinPoint.getSignature().getName());
+    
+    // 尝试从缓存获取结果
+    String cachedResult = cache.get(getCacheKey(joinPoint));
+    if (cachedResult != null) {
+        return cachedResult;
+    }
+    
+    // 如果没有缓存，返回一个友好的错误消息
+    return "Service is currently busy. Please try again later.";
+}
+
+private String getCacheKey(ProceedingJoinPoint joinPoint) {
+    // 实现缓存key的生成逻辑
+}
+```
+
+#### 7.4 注意事项
+
+1. 确保回退方法的返回类型与原始方法兼容。
+2. 回退方法应该是轻量级的，避免执行耗时的操作。
+3. 考虑在回退方法中包含适当的错误处理和日志记录。
+4. 如果回退方法本身抛出异常，将会被传播到调用者。
+
+通过合理使用 `fallbackFunction`，您可以为您的应用程序提供更好的用户体验，即使在遇到限流的情况下也能优雅地处理请求。
+
+### 8. 自定义限流模式
 
 你可以通过实现 `CustomRateLimitMode` 接口来创建自定义的限流模式：
 
@@ -200,6 +270,60 @@ public String customExample() {
     return "Custom rate limiting";
 }
 ```
+### 9. 自定义key
+
+RateLimiter Spring Boot Starter 提供了两种方式来自定义限流key：使用SpEL表达式和自定义函数。这些方法允许您根据特定的业务需求来定制限流key，从而实现更精细的限流控制。
+
+#### 9.1 使用SpEL表达式
+
+通过在 `@RateLimit` 注解的 `keys` 属性中使用SpEL表达式，您可以动态地生成限流key。
+
+示例：
+
+```java
+@GetMapping("/user/{id}")
+@RateLimit(rate = 5, rateInterval = "1m", keys = {"#id"})
+public String getUserInfo(@PathVariable("id") Long id) {
+    return "User info for id: " + id;
+}
+```
+
+在这个例子中，限流key将基于URL中的id参数。这意味着每个不同的用户ID都有自己的限流计数器。
+
+更复杂的示例：
+
+```java
+@PostMapping("/order")
+@RateLimit(rate = 2, rateInterval = "1m", keys = {"#order.userId", "#order.productId"})
+public String createOrder(@RequestBody Order order) {
+    return "Order created for user " + order.getUserId() + " and product " + order.getProductId();
+}
+```
+
+这个例子中，限流key是基于用户ID和产品ID的组合。这允许您对每个用户-产品组合进行单独的限流。
+
+#### 9.2 使用自定义函数
+
+对于更复杂的场景，您可以使用 `customKeyFunction` 属性来指定一个自定义方法来生成限流key。
+
+示例：
+
+```java
+@GetMapping("/complex")
+@RateLimit(rate = 10, rateInterval = "1m", customKeyFunction = "generateCustomKey")
+public String complexExample(HttpServletRequest request) {
+    return "Complex example";
+}
+
+public String generateCustomKey(JoinPoint joinPoint) {
+    HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+    String ip = request.getRemoteAddr();
+    String uri = request.getRequestURI();
+    return ip + ":" + uri;
+}
+```
+
+在这个例子中，`generateCustomKey` 方法根据客户端IP和请求URI生成一个自定义的限流key。这允许您基于IP和URI的组合进行限流。
 
 ## 注意事项
 
